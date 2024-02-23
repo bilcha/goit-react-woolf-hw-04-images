@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useEffect, useState } from 'react';
 import { Searchbar } from './Searchbar/Searchbar';
 import { ImageGallery } from './ImageGallery/ImageGallery';
 import { getGalleryItemsAPI } from './Helper/api';
@@ -6,94 +6,78 @@ import { Grid } from 'react-loader-spinner';
 import { LoadMore } from './LoadMore/LoadMore';
 import Modal from './Modal/Modal';
 
-class App extends Component {
-  state = {
-    galleryItems: null,
-    query: '',
-    page: 1,
-    loading: false,
-    error: '',
-    loadMore: false,
-    selectedItem: null,
-  };
-  searchQueryHandler = inputVal => {
-    this.setState({ galleryItems: null, query: inputVal, page: 1 });
-  };
-  componentDidUpdate = (prevProps, prevState) => {
-    if (
-      this.state.page !== prevState.page ||
-      this.state.query !== prevState.query
-    ) {
-      this.getGalleryItems();
-    }
-  };
-  loadMoreHandler = () => {
-    this.setState(prev => ({ page: prev.page + 1 }));
-  };
-  getGalleryItems = async () => {
-    this.setState({ loading: true });
-    try {
-      const data = await getGalleryItemsAPI(this.state.query, this.state.page);
-      this.setState(prev => ({
-        galleryItems: prev.galleryItems
-          ? [...prev.galleryItems, ...data.hits]
-          : data.hits,
-        loadMore: this.state.page < Math.ceil(data.totalHits / 12),
-        error:
-          data.hits.length === 0
-            ? "Sorry, we didn't find anything for your request."
-            : '',
-      }));
-    } catch (error) {
-      console.log(error);
-      this.setState({
-        error: 'Oops... Something went wrong. Please try again later.',
-      });
-    } finally {
-      this.setState({ loading: false });
-    }
-  };
-  showFullImage = imageData => {
-    this.setState({ selectedItem: imageData });
-  };
-  closeModal = () => {
-    this.setState({ selectedItem: null });
+const App = () => {
+  const [galleryItems, setGalleryItems] = useState([]);
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [loadMore, setLoadMore] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+
+  const searchQueryHandler = inputVal => {
+    setGalleryItems([]);
+    setQuery(inputVal);
+    setPage(1);
   };
 
-  render() {
-    return (
-      <div>
-        <Grid
-          class="loader"
-          visible={this.state.loading}
-          height="80"
-          width="80"
-          color="#4354b0"
-          ariaLabel="grid-loading"
-          radius="12.5"
-          wrapperClass="grid-wrapper"
-        />
-        <Searchbar searchQueryHandler={this.searchQueryHandler} />
-        {this.state.galleryItems && (
-          <ImageGallery
-            data={this.state.galleryItems}
-            showFullImage={this.showFullImage}
-          />
-        )}
-        {this.state.error && (
-          <h1 className="errorMessage">{this.state.error}</h1>
-        )}
-        {this.state.loadMore && (
-          <LoadMore loadMoreHandler={this.loadMoreHandler} />
-        )}
-        {this.state.selectedItem && (
-          <Modal
-            imageData={this.state.selectedItem}
-            closeModal={this.closeModal}
-          />
-        )}
-      </div>
-    );
-  }
-}
+  useEffect(() => {
+    const getGalleryItems = async () => {
+      setLoading(true);
+      try {
+        const data = await getGalleryItemsAPI(query, page);
+        setGalleryItems(prev => [...prev, ...data.hits]);
+        setLoadMore(page < Math.ceil(data.totalHits / 12));
+
+        if (data.hits.length === 0) {
+          setError("Sorry, we didn't find anything for your request.");
+        }
+      } catch (error) {
+        console.log(error);
+        setError('Oops... Something went wrong. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (query) {
+      getGalleryItems();
+    }
+  }, [page, query]);
+
+  const loadMoreHandler = () => {
+    setPage(prev => prev + 1);
+  };
+
+  const showFullImage = imageData => {
+    setSelectedItem(imageData);
+  };
+  const closeModal = () => {
+    setSelectedItem(null);
+  };
+
+  return (
+    <div>
+      <Grid
+        class="loader"
+        visible={loading}
+        height="80"
+        width="80"
+        color="#4354b0"
+        ariaLabel="grid-loading"
+        radius="12.5"
+        wrapperClass="grid-wrapper"
+      />
+      <Searchbar searchQueryHandler={searchQueryHandler} />
+      {galleryItems && (
+        <ImageGallery data={galleryItems} showFullImage={showFullImage} />
+      )}
+      {error && <h1 className="errorMessage">{error}</h1>}
+      {loadMore && <LoadMore loadMoreHandler={loadMoreHandler} />}
+      {selectedItem && (
+        <Modal imageData={selectedItem} closeModal={closeModal} />
+      )}
+    </div>
+  );
+};
+
 export default App;
